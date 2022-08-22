@@ -30,7 +30,7 @@ const getProgressAnimation = ({ progress }) => {
   `;
 };
 
-const getAnimations = () => {
+export const getAnimations = () => {
   return `
     /* Animations */
     @keyframes scaleInAnimation {
@@ -61,7 +61,7 @@ const getAnimations = () => {
  *  progress?: number;
  * }} args
  */
-const getStyles = ({
+export const getStyles = ({
   titleColor,
   textColor,
   iconColor,
@@ -112,4 +112,3 @@ const getStyles = ({
   `;
 };
 
-module.exports = { getStyles, getAnimations };
