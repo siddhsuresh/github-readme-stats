@@ -1,6 +1,6 @@
-const { clampValue } = require("../common/utils");
+import { clampValue } from "../common/utils";
 
-const createProgressNode = ({
+export const createProgressNode = ({
   x,
   y,
   width,
@@ -25,4 +25,3 @@ const createProgressNode = ({
   `;
 };
 
-exports.createProgressNode = createProgressNode;
