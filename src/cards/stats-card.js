@@ -1,271 +1,189 @@
 // @ts-check
-const I18n = require("../common/I18n");
-const Card = require("../common/Card");
-const icons = require("../common/icons");
-const { getStyles } = require("../getStyles");
-const { statCardLocales } = require("../translations");
-const {
-  kFormatter,
-  flexLayout,
-  clampValue,
-  measureText,
-  getCardColors,
-} = require("../common/utils");
+import {
+    kFormatter,
+    encodeHTML,
+    getCardColors,
+    flexLayout,
+    wrapTextMultiline,
+    measureText,
+    parseEmojis,
+} from "../common/utils";
 
-const createTextNode = ({
-  icon,
-  label,
-  value,
-  id,
-  index,
-  showIcons,
-  shiftValuePos,
-}) => {
-  const kValue = kFormatter(value);
-  const staggerDelay = (index + 3) * 150;
+import I18n from "../common/I18n";
+import Card from "../common/Card";
+import icons from "../common/icons";
+import { repoCardLocales } from "../translations";
 
-  const labelOffset = showIcons ? `x="25"` : "";
-  const iconSvg = showIcons
-    ? `
-    <svg data-testid="icon" class="icon" viewBox="0 0 16 16" version="1.1" width="16" height="16">
-      ${icon}
-    </svg>
-  `
-    : "";
-  return `
-    <g class="stagger" style="animation-delay: ${staggerDelay}ms" transform="translate(25, 0)">
-      ${iconSvg}
-      <text class="stat bold" ${labelOffset} y="12.5">${label}:</text>
-      <text 
-        class="stat" 
-        x="${(showIcons ? 140 : 120) + shiftValuePos}" 
-        y="12.5" 
-        data-testid="${id}"
-      >${kValue}</text>
-    </g>
+
+/**
+ * @param {string} label
+ * @param {string} textColor
+ * @returns {string}
+ */
+const getBadgeSVG = (label, textColor) => `
+  <g data-testid="badge" class="badge" transform="translate(320, -18)">
+    <rect stroke="${textColor}" stroke-width="1" width="70" height="20" x="-12" y="-14" ry="10" rx="10"></rect>
+    <text
+      x="23" y="-5"
+      alignment-baseline="central"
+      dominant-baseline="central"
+      text-anchor="middle"
+      fill="${textColor}"
+    >
+      ${label}
+    </text>
+  </g>
+`;
+
+/**
+ * @param {string} langName
+ * @param {string} langColor
+ * @returns {string}
+ */
+const createLanguageNode = (langName, langColor) => {
+    return `
+  <g data-testid="primary-lang">
+    <circle data-testid="lang-color" cx="0" cy="-5" r="6" fill="${langColor}" />
+    <text data-testid="lang-name" class="gray" x="15">${langName}</text>
+  </g>
   `;
 };
 
+const ICON_SIZE = 16;
+const iconWithLabel = (icon, label, testid) => {
+    if (label <= 0) return "";
+    const iconSvg = `
+    <svg
+      class="icon"
+      y="-12"
+      viewBox="0 0 16 16"
+      version="1.1"
+      width="${ICON_SIZE}"
+      height="${ICON_SIZE}"
+    >
+      ${icon}
+    </svg>
+  `;
+    const text = `<text data-testid="${testid}" class="gray">${label}</text>`;
+    return flexLayout({ items: [iconSvg, text], gap: 20 }).join("");
+};
+
 /**
- * @param {Partial<import('../fetchers/types').StatsData>} stats
- * @param {Partial<import("./types").StatCardOptions>} options
+ * @param {import('../fetchers/types').RepositoryData} repo 
+ * @param {Partial<import("./types").RepoCardOptions>} options 
  * @returns {string}
  */
-const renderStatsCard = (stats = {}, options = { hide: [] }) => {
-  const {
-    name,
-    totalStars,
-    totalCommits,
-    totalIssues,
-    totalPRs,
-    contributedTo,
-    rank,
-  } = stats;
-  const {
-    hide = [],
-    show_icons = false,
-    hide_title = false,
-    hide_border = false,
-    hide_rank = false,
-    include_all_commits = false,
-    line_height = 25,
-    title_color,
-    icon_color,
-    text_color,
-    bg_color,
-    theme = "default",
-    custom_title,
-    border_radius,
-    border_color,
-    locale,
-    disable_animations = false,
-  } = options;
+const renderRepoCard = (repo, options = {}) => {
+    const {
+        name,
+        nameWithOwner,
+        description,
+        primaryLanguage,
+        isArchived,
+        isTemplate,
+        starCount,
+        forkCount,
+    } = repo;
+    const {
+        hide_border = false,
+        title_color,
+        icon_color,
+        text_color,
+        bg_color,
+        show_owner,
+        theme = "default_repocard",
+        border_radius,
+        border_color,
+        locale,
+    } = options;
 
-  const lheight = parseInt(String(line_height), 10);
+    const lineHeight = 10;
+    const header = show_owner ? nameWithOwner : name;
+    const langName = (primaryLanguage && primaryLanguage.name) || "Unspecified";
+    const langColor = (primaryLanguage && primaryLanguage.color) || "#333";
 
-  // returns theme based colors with proper overrides and defaults
-  const { titleColor, textColor, iconColor, bgColor, borderColor } =
-    getCardColors({
-      title_color,
-      icon_color,
-      text_color,
-      bg_color,
-      border_color,
-      theme,
+    const desc = parseEmojis(description || "No description provided");
+    const multiLineDescription = wrapTextMultiline(desc);
+    const descriptionLines = multiLineDescription.length;
+    const descriptionSvg = multiLineDescription
+        .map((line) => `<tspan dy="1.2em" x="25">${encodeHTML(line)}</tspan>`)
+        .join("");
+
+    const height =
+        (descriptionLines > 1 ? 120 : 110) + descriptionLines * lineHeight;
+
+    const i18n = new I18n({
+        locale,
+        translations: repoCardLocales,
     });
 
-  const apostrophe = ["x", "s"].includes(name.slice(-1).toLocaleLowerCase())
-    ? ""
-    : "s";
-  const i18n = new I18n({
-    locale,
-    translations: statCardLocales({ name, apostrophe }),
-  });
+    // returns theme based colors with proper overrides and defaults
+    const colors = getCardColors({
+        title_color,
+        icon_color,
+        text_color,
+        bg_color,
+        border_color,
+        theme,
+    });
 
-  // Meta data for creating text nodes with createTextNode function
-  const STATS = {
-    stars: {
-      icon: icons.star,
-      label: i18n.t("statcard.totalstars"),
-      value: totalStars,
-      id: "stars",
-    },
-    commits: {
-      icon: icons.commits,
-      label: `${i18n.t("statcard.commits")}${
-        include_all_commits ? "" : ` (${new Date().getFullYear()})`
-      }`,
-      value: totalCommits,
-      id: "commits",
-    },
-    prs: {
-      icon: icons.prs,
-      label: i18n.t("statcard.prs"),
-      value: totalPRs,
-      id: "prs",
-    },
-    issues: {
-      icon: icons.issues,
-      label: i18n.t("statcard.issues"),
-      value: totalIssues,
-      id: "issues",
-    },
-    contribs: {
-      icon: icons.contribs,
-      label: i18n.t("statcard.contribs"),
-      value: contributedTo,
-      id: "contribs",
-    },
-  };
+    const svgLanguage = primaryLanguage
+        ? createLanguageNode(langName, langColor)
+        : "";
 
-  const longLocales = [
-    "cn",
-    "es",
-    "fr",
-    "pt-br",
-    "ru",
-    "uk-ua",
-    "id",
-    "my",
-    "pl",
-    "de",
-    "nl",
-  ];
-  const isLongLocale = longLocales.includes(locale) === true;
+    const totalStars = kFormatter(starCount);
+    const totalForks = kFormatter(forkCount);
+    const svgStars = iconWithLabel(icons.star, totalStars, "stargazers");
+    const svgForks = iconWithLabel(icons.fork, totalForks, "forkcount");
 
-  // filter out hidden stats defined by user & create the text nodes
-  const statItems = Object.keys(STATS)
-    .filter((key) => !hide.includes(key))
-    .map((key, index) =>
-      // create the text nodes, and pass index so that we can calculate the line spacing
-      createTextNode({
-        ...STATS[key],
-        index,
-        showIcons: show_icons,
-        shiftValuePos:
-          (!include_all_commits ? 50 : 35) + (isLongLocale ? 50 : 0),
-      }),
-    );
+    const starAndForkCount = flexLayout({
+        items: [svgLanguage, svgStars, svgForks],
+        sizes: [
+            measureText(langName, 12),
+            ICON_SIZE + measureText(`${totalStars}`, 12),
+            ICON_SIZE + measureText(`${totalForks}`, 12),
+        ],
+        gap: 25,
+    }).join("");
 
-  // Calculate the card height depending on how many items there are
-  // but if rank circle is visible clamp the minimum height to `150`
-  let height = Math.max(
-    45 + (statItems.length + 1) * lheight,
-    hide_rank ? 0 : 150,
-  );
+    const card = new Card({
+        defaultTitle: header.length > 35 ? `${header.slice(0, 35)}...` : header,
+        titlePrefixIcon: icons.contribs,
+        width: 400,
+        height,
+        border_radius,
+        colors,
+    });
 
-  // Conditionally rendered elements
-  const rankCircle = hide_rank
-    ? ""
-    : `<g data-testid="rank-circle" 
-          transform="translate(400, ${height / 2 - 50})">
-        <circle class="rank-circle-rim" cx="-10" cy="8" r="40" />
-        <circle class="rank-circle" cx="-10" cy="8" r="40" />
-        <g class="rank-text">
-          <text
-            x="-5"
-            y="3"
-            alignment-baseline="central"
-            dominant-baseline="central"
-            text-anchor="middle"
-          >
-            ${rank.level}
-          </text>
-        </g>
-      </g>`;
+    card.disableAnimations();
+    card.setHideBorder(hide_border);
+    card.setHideTitle(false);
+    card.setCSS(`
+    .description { font: 400 13px 'Segoe UI', Ubuntu, Sans-Serif; fill: ${colors.textColor} }
+    .gray { font: 400 12px 'Segoe UI', Ubuntu, Sans-Serif; fill: ${colors.textColor} }
+    .icon { fill: ${colors.iconColor} }
+    .badge { font: 600 11px 'Segoe UI', Ubuntu, Sans-Serif; }
+    .badge rect { opacity: 0.2 }
+  `);
 
-  // the better user's score the the rank will be closer to zero so
-  // subtracting 100 to get the progress in 100%
-  const progress = 100 - rank.score;
-  const cssStyles = getStyles({
-    titleColor,
-    textColor,
-    iconColor,
-    show_icons,
-    progress,
-  });
+    return card.render(`
+    ${isTemplate
+            // @ts-ignore
+            ? getBadgeSVG(i18n.t("repocard.template"), colors.textColor)
+            : isArchived
+                // @ts-ignore
+                ? getBadgeSVG(i18n.t("repocard.archived"), colors.textColor)
+                : ""
+        }
 
-  const calculateTextWidth = () => {
-    return measureText(custom_title ? custom_title : i18n.t("statcard.title"));
-  };
+    <text class="description" x="25" y="-5">
+      ${descriptionSvg}
+    </text>
 
-  const width = hide_rank
-    ? clampValue(
-        50 /* padding */ + calculateTextWidth() * 2,
-        270 /* min */,
-        Infinity,
-      )
-    : 495;
-
-  const card = new Card({
-    customTitle: custom_title,
-    defaultTitle: i18n.t("statcard.title"),
-    width,
-    height,
-    border_radius,
-    colors: {
-      titleColor,
-      textColor,
-      iconColor,
-      bgColor,
-      borderColor,
-    },
-  });
-
-  card.setHideBorder(hide_border);
-  card.setHideTitle(hide_title);
-  card.setCSS(cssStyles);
-
-  if (disable_animations) card.disableAnimations();
-
-  // Accessibility Labels
-  const labels = Object.keys(STATS)
-    .filter((key) => !hide.includes(key))
-    .map((key) => {
-      if (key === "commits") {
-        return `${i18n.t("statcard.commits")} ${
-          include_all_commits ? "" : `in ${new Date().getFullYear()}`
-        } : ${totalStars}`;
-      }
-      return `${STATS[key].label}: ${STATS[key].value}`;
-    })
-    .join(", ");
-
-  card.setAccessibilityLabel({
-    title: `${card.title}, Rank: ${rank.level}`,
-    desc: labels,
-  });
-
-  return card.render(`
-    ${rankCircle}
-    <svg x="0" y="0">
-      ${flexLayout({
-        items: statItems,
-        gap: lheight,
-        direction: "column",
-      }).join("")}
-    </svg> 
+    <g transform="translate(30, ${height - 75})">
+      ${starAndForkCount}
+    </g>
   `);
 };
 
-module.exports = renderStatsCard;
+export default renderRepoCard;
