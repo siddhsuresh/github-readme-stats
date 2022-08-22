@@ -1,16 +1,16 @@
 // @ts-check
-import Card from("../common/Card");
-import I18n from("../common/I18n");
-import { getStyles } from("../getStyles");
-import { wakatimeCardLocales } from("../translations");
-import languageColors from("../common/languageColors.json");
-import { createProgressNode } from("../common/createProgressNode");
+import Card from "../common/Card" ;
+import I18n from "../common/I18n" ;
+import { getStyles } from "../getStyles" ;
+import { wakatimeCardLocales } from "../translations";
+import languageColors from "../common/languageColors.json";
+import { createProgressNode } from "../common/createProgressNode";
 import {
   clampValue,
   getCardColors,
   flexLayout,
   lowercaseTrim,
-} from("../common/utils");
+} from "../common/utils";
 
 /**
  * @param {{color: string, text: string}} param0
